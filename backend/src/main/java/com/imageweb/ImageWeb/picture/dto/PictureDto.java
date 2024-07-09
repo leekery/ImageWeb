@@ -14,7 +14,7 @@ public class PictureDto {
     private Long id;
     @URL
     private String url;
+    private String prompt;
     private LocalDateTime created;
     private Integer price;
-    private Boolean prompt;
 }

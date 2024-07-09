@@ -1,56 +1,38 @@
 package com.imageweb.ImageWeb.user.service;
 
-import com.imageweb.ImageWeb.role.Role;
 import com.imageweb.ImageWeb.user.dto.UserDto;
+import com.imageweb.ImageWeb.user.exception.UserConflictException;
 import com.imageweb.ImageWeb.user.model.User;
 import com.imageweb.ImageWeb.user.dto.UserMapper;
 import com.imageweb.ImageWeb.user.exception.UserNotFoundException;
 import com.imageweb.ImageWeb.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class UserService implements UserDetailsService {
+public class UserService {
     private final UserRepository repository;
     private final UserMapper mapper;
-    private PasswordEncoder passwordEncoder;
-
-    @Override
-    public UserDetails loadUserByUsername(String login) throws UsernameNotFoundException {
-        Optional<User> user = repository.findByLogin(login);
-
-        if (user.isEmpty()) {
-            throw new UsernameNotFoundException("Пользователь не найден");
-        }
-
-        return user.get();
-    }
 
     @Transactional
-    public boolean saveUser(UserDto userDto) {
+    public UserDto createUser(UserDto userDto) {
         User user = mapper.userDtoToUser(userDto);
 
-        if (repository.findByLogin(user.getLogin()).isPresent()
-                || repository.findByEmail(user.getEmail()).isPresent()) {
-            return false;
+        if (repository.findByEmail(user.getEmail()).isPresent()) {
+            throw new UserConflictException("Пользователь с таким email уже существует");
         }
 
-        user.setRole(new Role(1, "ROLE_USER"));
-        user.setPassword(passwordEncoder.encode(user.getPassword()));
         log.info("Создание пользователя");
         repository.save(user);
-        return true;
+        return mapper.userToUserDto(repository.save(user));
     }
 
     @Transactional(readOnly = true)
@@ -80,8 +62,15 @@ public class UserService implements UserDetailsService {
     }
 
     @Transactional(readOnly = true)
-    public List<User> getAllUsers() {
+    public List<UserDto> getAllUsers() {
         log.info("Вывод всех пользователей");
-        return repository.findAll();
+        List<User> users = repository.findAll();
+        List<UserDto> listDto = new ArrayList<>();
+
+        for (User user : users) {
+            listDto.add(mapper.userToUserDto(user));
+        }
+
+        return listDto;
     }
 }
